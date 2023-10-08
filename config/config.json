@@ -1,0 +1,15 @@
+{
+  "DEBUG": true,
+  "server": {
+    "addr": "0.0.0.0:8080"
+  },
+  "mysql": {
+    "volo": {
+      "dsn": "root:%s@tcp(ay7295.space:4407)/volo?charset=utf8&parseTime=True&loc=Local"
+    }
+  },
+  "redis": {
+    "addr": "ay7295.space:7480",
+    "db": 10
+  }
+}
