@@ -1,0 +1,19 @@
+version: '3'
+services:
+  app:
+    build:
+        context: .
+        dockerfile: Dockerfile
+    environment:
+      - REDIS_PASSWORD=<redis-password>
+      - MYSQL_PASSWORD=<mysql-password>
+    ports:
+      - "8080:8080"
+  coturn:
+    image: coturn/coturn:alpine
+    environment:
+      - TURN_SECRET=<static-auth-secret>
+      - TURN_REALM=<realm>
+      - TURN_PUBLIC_IP=<public-ip>
+    ports:
+      - "3478:3478/udp"
