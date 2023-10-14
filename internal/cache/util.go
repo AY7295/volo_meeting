@@ -4,12 +4,14 @@ import (
 	"context"
 	"reflect"
 	"time"
+	"volo_meeting/consts"
 	"volo_meeting/lib/db/redis"
+	error2 "volo_meeting/lib/error"
 )
 
 const structTag = "redis"
 
-// ToMap : only convert struct field with 'redis' tag to map
+// ToMap : only convert struct field with 'redis' tag to map[string]any
 func ToMap(item any) map[string]any {
 	val := reflect.ValueOf(item).Elem()
 	typ := val.Type()
@@ -28,35 +30,43 @@ func ToMap(item any) map[string]any {
 	return result
 }
 
+func wrap(err error) error {
+	return error2.New(consts.WSError, err)
+}
+
 func ZRevRange(ctx context.Context, key string, start, stop int64) ([]string, error) {
-	return instance.ZRevRange(ctx, key, start, stop).Result()
+	data, err := instance.ZRevRange(ctx, key, start, stop).Result()
+	return data, wrap(err)
 }
 
 func ZAdd(ctx context.Context, key string, members []redis.Z) error {
-	return instance.ZAdd(ctx, key, members...).Err()
+
+	return wrap(instance.ZAdd(ctx, key, members...).Err())
 }
 
 func ZRem(ctx context.Context, key string, members []string) error {
-	return instance.ZRem(ctx, key, members).Err()
+	return wrap(instance.ZRem(ctx, key, members).Err())
 }
 
 func SetNX(ctx context.Context, key string, value string, expiration time.Duration) (bool, error) {
-	return instance.SetNX(ctx, key, value, expiration).Result()
+	data, err := instance.SetNX(ctx, key, value, expiration).Result()
+	return data, wrap(err)
 }
 
 func Get(ctx context.Context, key string) (string, error) {
-	return instance.Get(ctx, key).Result()
+	data, err := instance.Get(ctx, key).Result()
+	return data, wrap(err)
 }
 
 func Del(ctx context.Context, keys ...string) error {
-	return instance.Del(ctx, keys...).Err()
+	return wrap(instance.Del(ctx, keys...).Err())
 }
 
 func HSet(ctx context.Context, key string, value map[string]any) error {
-	return instance.HSet(ctx, key, value).Err()
+	return wrap(instance.HSet(ctx, key, value).Err())
 }
 
 // HGet : data must be a pointer
 func HGet(ctx context.Context, key string, data any) error {
-	return instance.HGetAll(ctx, key).Scan(data)
+	return wrap(instance.HGetAll(ctx, key).Scan(data))
 }

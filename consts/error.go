@@ -12,6 +12,8 @@ const (
 	PermissionDenied
 	NotFound
 	ParamError
+	MarshalError
+	WSError
 )
 
 type ErrorType string

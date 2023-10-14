@@ -7,5 +7,6 @@ import (
 
 func InitApi(group *gin.RouterGroup) {
 	group.GET("fast", handler.AddMeeting)
-	group.GET("member", handler.GetMemberList)
+	// group.GET("member", handler.GetMemberList)
+	group.GET("room", handler.JoinMeetingRoom)
 }

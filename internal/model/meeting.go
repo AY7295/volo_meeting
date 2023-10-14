@@ -29,3 +29,15 @@ func (m *Meeting) AppendDevice(db *gorm.DB, device *Device) error {
 func (m *Meeting) Update(db *gorm.DB, updates map[string]any) error {
 	return db.Model(m).Updates(updates).Error
 }
+
+func (m *Meeting) StartNow(db *gorm.DB) error {
+	return m.Update(db, map[string]any{
+		"start_time": time.Now(),
+	})
+}
+
+func (m *Meeting) EndNow(db *gorm.DB) error {
+	return m.Update(db, map[string]any{
+		"end_time": time.Now(),
+	})
+}

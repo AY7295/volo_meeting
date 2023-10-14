@@ -13,10 +13,10 @@ var (
 )
 
 type Device struct {
-	Id       string `json:"id"`
-	Nickname string `json:"nickname"`
+	Id       string `json:"id" binding:"required"`
+	Nickname string `json:"nickname" binding:"required"`
 	Platform string `json:"platform"`
-	JoinTime uint64 `json:"join_time"`
+	JoinTime int64  `json:"join_time"`
 }
 
 func (d *Device) ToMap() map[string]any {
@@ -37,7 +37,7 @@ func (d *Device) FromMap(m map[string]any) error {
 	d.Id, ok = m["id"].(string)
 	d.Nickname, ok = m["nickname"].(string)
 	d.Platform, ok = m["platform"].(string)
-	d.JoinTime, ok = m["join_time"].(uint64)
+	d.JoinTime, ok = m["join_time"].(int64)
 
 	if !ok {
 		return error2.InvalidTypeAssert

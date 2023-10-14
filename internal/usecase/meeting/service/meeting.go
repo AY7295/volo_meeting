@@ -2,13 +2,17 @@ package service
 
 import (
 	"context"
-	"go.uber.org/zap"
 	"volo_meeting/consts"
 	"volo_meeting/internal/cache"
+	"volo_meeting/internal/hub"
 	"volo_meeting/internal/model"
 	"volo_meeting/internal/usecase/meeting/request"
 	error2 "volo_meeting/lib/error"
 	"volo_meeting/lib/id"
+	"volo_meeting/lib/ws"
+
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func NewMeeting() (*request.MeetingInfo, error) {
@@ -47,6 +51,29 @@ func GetMemberList(id string) ([]*request.Device, error) {
 	}
 
 	return devices, error2.New(consts.CacheError, err)
+}
+
+func JoinMeetingRoom(ctx *gin.Context, id string, device *hub.Device) (err error) {
+	socket, err := ws.Upgrade(ctx.Writer, ctx.Request)
+	if err != nil {
+		return err
+	}
+	conn := ws.NewConn(socket, device.Id)
+
+	defer func() {
+		if conn != nil {
+			go conn.Listen()
+		} else {
+			err = error2.InvalidClosedSocket
+		}
+	}()
+
+	// if len(id) != consts.DefaultMeetingIdSize {
+	// 	if id, err = cache.Get(ctx, id); err != nil {
+	// 		return err
+	// 	}
+	// }
+	return hub.Global.JoinRoom(id, device, conn)
 }
 
 // createMeeting create a meeting and retry 3 times if failed
