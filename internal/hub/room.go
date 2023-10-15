@@ -206,7 +206,7 @@ func deliver(r *Room, message *Message[[]Data], fromId DeviceId) {
 			for i := 0; i < len(msg.Data); i++ {
 				(*msg).Data[i].Id = fromId
 			}
-			value.Conn.Send(message)
+			value.Conn.Send(msg)
 		}
 	}
 

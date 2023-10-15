@@ -27,12 +27,6 @@ func NewConn(socket *websocket.Conn, deviceId string) *Conn {
 		closed:   make(chan struct{}),
 	}
 
-	conn.socket.SetCloseHandler(func(code int, text string) error {
-		zap.L().Info("websocket Close", zap.Int("code", code), zap.String("text", text))
-		conn.Emit(consts.Close)
-		return nil
-	})
-
 	conn.RecoverWith(func(i1, i2 interface{}, err error) {
 		zap.L().Error("emitter panic", zap.String("deviceId", deviceId), zap.Error(err), zap.Any("i1", i1), zap.Any("i2", i2))
 	})
