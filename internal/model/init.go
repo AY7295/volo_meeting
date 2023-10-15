@@ -15,6 +15,10 @@ func Instance() *gorm.DB {
 
 func Init() {
 	instance = mysql.Instance()
+	//migrate()
+}
+
+func migrate() {
 	err := instance.AutoMigrate(
 		&Meeting{},
 		&Device{},

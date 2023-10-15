@@ -7,15 +7,16 @@ const (
 	Candidate   Event = "iceCandidate"
 	Device      Event = "device"
 	KeepAlive   Event = "keepAlive"
-	Join        Event = "join"
+	Member      Event = "member"
 	Leave       Event = "leave"
 	Error       Event = "error"
 )
 
-type EmitType string
+type EmitEvent int
 
 const (
-	Message EmitType = "message"
-	Err     EmitType = "error"
-	Close   EmitType = "close"
+	Message EmitEvent = iota
+	Join
+	Err
+	Close
 )

@@ -2,14 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"volo_meeting/consts"
 	"volo_meeting/internal/cache"
 	"volo_meeting/internal/hub"
 	"volo_meeting/internal/model"
 	"volo_meeting/internal/usecase/meeting/request"
+	"volo_meeting/lib/callback"
 	error2 "volo_meeting/lib/error"
 	"volo_meeting/lib/id"
 	"volo_meeting/lib/ws"
+
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -53,27 +57,35 @@ func GetMemberList(id string) ([]*request.Device, error) {
 	return devices, error2.New(consts.CacheError, err)
 }
 
-func JoinMeetingRoom(ctx *gin.Context, id string, device *hub.Device) (err error) {
-	socket, err := ws.Upgrade(ctx.Writer, ctx.Request)
-	if err != nil {
-		return err
-	}
-	conn := ws.NewConn(socket, device.Id)
-
-	defer func() {
-		if conn != nil {
-			go conn.Listen()
-		} else {
-			err = error2.InvalidClosedSocket
-		}
-	}()
-
+func JoinMeetingRoom(ctx *gin.Context, id string, device *hub.Device) {
+	// descp get meeting id from cache
 	// if len(id) != consts.DefaultMeetingIdSize {
 	// 	if id, err = cache.Get(ctx, id); err != nil {
 	// 		return err
 	// 	}
 	// }
-	return hub.Global.JoinRoom(id, device, conn)
+
+	err := checkEndedMeeting(id)
+	if err != nil {
+		callback.Error(ctx, err)
+		return
+	}
+	err = appendDevice(id, device.Id)
+	if err != nil {
+		callback.Error(ctx, err)
+		return
+	}
+
+	socket, err := ws.Upgrade(ctx.Writer, ctx.Request)
+	if err != nil {
+		callback.Error(ctx, err)
+		return
+	}
+	conn := ws.NewConn(socket, device.Id)
+
+	go conn.Listen()
+
+	hub.Global.JoinRoom(id, device, conn)
 }
 
 // createMeeting create a meeting and retry 3 times if failed
@@ -120,4 +132,38 @@ func generateFriendlyId(meetingId string) (string, error) {
 	}
 
 	return friendlyId, err
+}
+
+func appendDevice(meetingId, deviceId string) error {
+	device := &model.Device{Id: deviceId}
+	err := model.Instance().FirstOrCreate(device).Error
+	if err != nil {
+		zap.L().Error("create device error", zap.Error(err))
+		return error2.New(consts.SqlError, err)
+	}
+
+	err = model.Instance().Model(&model.Meeting{Id: meetingId}).Association("Devices").Append(device)
+	if err != nil {
+		zap.L().Error("append device error", zap.Error(err))
+	}
+
+	return error2.New(consts.SqlError, err)
+}
+
+func checkEndedMeeting(id string) error {
+	meeting := &model.Meeting{Id: id}
+	err := meeting.FindById(model.Instance())
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return error2.NotFound("meeting not found, id: " + id)
+		}
+		zap.L().Error("get meeting error", zap.Error(err))
+		return error2.New(consts.SqlError, err)
+	}
+
+	if meeting.EndTime != nil {
+		return error2.EndedMeeting
+	}
+
+	return nil
 }

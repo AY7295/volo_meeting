@@ -12,18 +12,11 @@ import (
 	"gorm.io/gorm"
 )
 
-type Hub interface {
-	GetRoom(meetingId MeetingId) (*Room, error)
-	JoinRoom(meetingId MeetingId, device *Device, conn *ws.Conn) error
-	RemoveRoom(meetingId MeetingId) error
-}
-
 var (
-	Global     = newHub()
-	_      Hub = (*hub)(nil)
+	Global = newHub()
 )
 
-func newHub() Hub {
+func newHub() *hub {
 	return &hub{
 		rooms: tsmap.New[MeetingId, *Room](),
 	}
@@ -61,18 +54,17 @@ func (h *hub) GetRoom(meetingId MeetingId) (*Room, error) {
 	return room, nil
 }
 
-func (h *hub) JoinRoom(meetingId MeetingId, device *Device, conn *ws.Conn) error {
+func (h *hub) JoinRoom(meetingId MeetingId, device *Device, conn *ws.Conn) {
 	room, err := h.GetRoom(meetingId)
 	if err != nil {
-		return err
-	}
-	err = room.Meeting.AppendDevice(model.Instance(), &model.Device{Id: device.Id})
-	if err != nil {
-		return err
+		zap.L().Error("get room error", zap.Error(err))
+		conn.Send(&Message[error]{consts.Error, err})
+		return
 	}
 
-	go room.Join(device, conn)
-	return nil
+	room.Join(device, conn)
+
+	conn.Emit(consts.Join)
 }
 
 func (h *hub) RemoveRoom(meetingId MeetingId) error {

@@ -41,16 +41,19 @@ func NewConn(socket *websocket.Conn, deviceId string) *Conn {
 }
 
 func (conn *Conn) Listen() {
-	conn.timer = time.AfterFunc(consts.KeepaliveInterval, func() {
-		conn.Emit(consts.Close)
-	})
+	// descp keepalive
+	//conn.timer = time.AfterFunc(consts.KeepaliveInterval, func() {
+	//	conn.Emit(consts.Close)
+	//})
+
+	zap.L().Debug("start listening", zap.String("deviceId", conn.DeviceId))
 
 	for {
 		select {
 		case <-conn.closed:
 			return
 		default:
-			message, err := conn.receive()
+			_, message, err := conn.socket.ReadMessage()
 			if err == nil {
 				conn.Emit(consts.Message, message)
 				continue
@@ -63,18 +66,9 @@ func (conn *Conn) Listen() {
 	}
 }
 
-func (conn *Conn) receive() ([]byte, error) {
-	if err := conn.isClosed(); err != nil {
-		return nil, err
-	}
-
-	_, message, err := conn.socket.ReadMessage()
-	return message, err
-}
-
 func (conn *Conn) Send(data any) {
 	if err := conn.isClosed(); err != nil {
-		zap.L().Info("websocket is closed", zap.Any("data", data))
+		zap.L().Info("send to closed conn", zap.Any("data", data))
 		return
 	}
 
@@ -92,6 +86,7 @@ func (conn *Conn) Send(data any) {
 }
 
 func (conn *Conn) KeepAlive() {
+	zap.L().Debug("keepalive", zap.String("deviceId", conn.DeviceId))
 	conn.timer.Reset(consts.KeepaliveInterval)
 }
 
@@ -105,6 +100,7 @@ func (conn *Conn) isClosed() error {
 }
 
 func (conn *Conn) Close() {
+	zap.L().Debug("close conn", zap.String("deviceId", conn.DeviceId))
 	close(conn.closed)
 	err := conn.socket.Close()
 	if err != nil {

@@ -8,8 +8,8 @@ import (
 type Meeting struct {
 	Id         string     `json:"id" gorm:"type:varchar(20);primary_key"`
 	FriendlyId string     `json:"friendly_id" gorm:"type:varchar(20);index;not null"`
-	StartTime  *time.Time `json:"start_time" gorm:"type:datetime;index;not null"`
-	EndTime    *time.Time `json:"end_time" gorm:"type:datetime;index;not null"`
+	StartTime  *time.Time `json:"start_time" gorm:"type:datetime;index"`
+	EndTime    *time.Time `json:"end_time" gorm:"type:datetime;index"`
 
 	Devices []Device `json:"devices" gorm:"many2many:meeting_device;"`
 }

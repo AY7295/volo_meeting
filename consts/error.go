@@ -14,6 +14,7 @@ const (
 	ParamError
 	MarshalError
 	WSError
+	MeetingError
 )
 
 type ErrorType string
@@ -27,6 +28,9 @@ var Code2Type = map[ErrorCode]ErrorType{
 	PermissionDenied: "Permission Denied",
 	NotFound:         "Not Found",
 	ParamError:       "Param Error",
+	MarshalError:     "Marshal Error",
+	WSError:          "WS Error",
+	MeetingError:     "Meeting Error",
 }
 
 var Code2HttpStatus = map[ErrorCode]int{

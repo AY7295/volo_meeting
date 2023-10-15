@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"time"
 	"volo_meeting/consts"
 	"volo_meeting/internal/hub"
@@ -29,29 +30,18 @@ func GetMemberList(ctx *gin.Context) {
 	})
 }
 
-// func JoinMeetingRoom(ctx *gin.Context) {
-// 	id := ctx.Query("meeting_id")
-// 	if len(id) != consts.DefaultMeetingIdSize {
-// 		callback.Error(ctx, error2.InvalidMeetingId)
-// 		return
-// 	}
-
-// 	bind := &hub.Device{JoinTime: time.Now().Unix()}
-// 	if err := ctx.BindQuery(bind); err != nil {
-// 		callback.Error(ctx, error2.New(consts.ParamError, err))
-// 		return
-// 	}
-
-// 	callback.Error(ctx, service.JoinMeetingRoom(ctx, id, bind))
-// }
-
 func JoinMeetingRoom(ctx *gin.Context) {
-	id := ctx.Query("meeting_id")
-	bind := &hub.Device{
-		Id:       ctx.Query("id"),
-		Nickname: ctx.Query("nickname"),
-		JoinTime: time.Now().Unix(),
+	meetingId := ctx.Query("meeting_id")
+	deviceId := ctx.Query("id")
+	nickname := ctx.Query("nickname")
+	if len(meetingId) == 0 || len(deviceId) == 0 || len(nickname) == 0 {
+		callback.Error(ctx, error2.New(consts.ParamError, errors.New("empty params")))
+		return
 	}
 
-	callback.Error(ctx, service.JoinMeetingRoom(ctx, id, bind))
+	service.JoinMeetingRoom(ctx, meetingId, &hub.Device{
+		Id:       deviceId,
+		Nickname: nickname,
+		JoinTime: time.Now().Unix(),
+	})
 }

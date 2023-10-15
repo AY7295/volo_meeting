@@ -16,7 +16,7 @@ type errorType struct {
 }
 
 func (e *errorType) Error() string {
-	return fmt.Sprintf("[ code: %d, type: %s, error: %v ]", e.Code, e.Type, e.Err)
+	return fmt.Sprintf("[ code: %d, type: %s, error: %v ]", e.Code, e.Type, e.Err.Error())
 }
 
 func New(errCode consts.ErrorCode, err error) error {
