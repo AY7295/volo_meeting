@@ -1,5 +1,9 @@
 package consts
 
+const (
+	ErrorId = -1
+)
+
 type Event string
 
 const (
