@@ -81,7 +81,7 @@ func JoinMeetingRoom(ctx *gin.Context, id string, device *hub.Device) {
 		callback.Error(ctx, err)
 		return
 	}
-	conn := ws.NewConn(socket, device.Id)
+	conn := ws.NewConn(socket)
 
 	go conn.Listen()
 

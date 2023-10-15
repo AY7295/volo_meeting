@@ -7,28 +7,27 @@ import (
 
 	"github.com/chuckpreslar/emission"
 	"github.com/gorilla/websocket"
-	"github.com/json-iterator/go"
+	jsoniter "github.com/json-iterator/go"
 	"go.uber.org/zap"
 )
 
 type Conn struct {
-	DeviceId string
 	*emission.Emitter
+
 	socket *websocket.Conn
 	timer  *time.Timer
 	closed chan struct{}
 }
 
-func NewConn(socket *websocket.Conn, deviceId string) *Conn {
+func NewConn(socket *websocket.Conn) *Conn {
 	conn := &Conn{
-		DeviceId: deviceId,
-		Emitter:  emission.NewEmitter(),
-		socket:   socket,
-		closed:   make(chan struct{}),
+		Emitter: emission.NewEmitter(),
+		socket:  socket,
+		closed:  make(chan struct{}),
 	}
 
 	conn.RecoverWith(func(i1, i2 interface{}, err error) {
-		zap.L().Error("emitter panic", zap.String("deviceId", deviceId), zap.Error(err), zap.Any("i1", i1), zap.Any("i2", i2))
+		zap.L().Error("emitter panic", zap.Error(err), zap.Any("code", i1), zap.Any("error-msg", i2))
 	})
 
 	return conn
@@ -39,8 +38,6 @@ func (conn *Conn) Listen() {
 	//conn.timer = time.AfterFunc(consts.KeepaliveInterval, func() {
 	//	conn.Emit(consts.Close)
 	//})
-
-	zap.L().Debug("start listening", zap.String("deviceId", conn.DeviceId))
 
 	for {
 		select {
@@ -53,7 +50,10 @@ func (conn *Conn) Listen() {
 				continue
 			}
 
-			zap.L().Error("read message error", zap.Error(err))
+			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				zap.L().Error("read message error", zap.Error(err))
+			}
+
 			conn.Emit(consts.Close)
 			return
 		}
@@ -80,7 +80,6 @@ func (conn *Conn) Send(data any) {
 }
 
 func (conn *Conn) KeepAlive() {
-	zap.L().Debug("keepalive", zap.String("deviceId", conn.DeviceId))
 	conn.timer.Reset(consts.KeepaliveInterval)
 }
 
@@ -94,7 +93,6 @@ func (conn *Conn) isClosed() error {
 }
 
 func (conn *Conn) Close() {
-	zap.L().Debug("close conn", zap.String("deviceId", conn.DeviceId))
 	close(conn.closed)
 	err := conn.socket.Close()
 	if err != nil {

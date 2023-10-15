@@ -24,17 +24,10 @@ type Data struct {
 	Content *jsoniter.RawMessage `json:"content"` // description, candidate
 }
 
-type Member struct {
-	Device *Device
-	Room   *Room
-	Conn   *ws.Conn
-}
-
 type Device struct {
-	Id       DeviceId `json:"id" redis:"id"`
-	Nickname string   `json:"nickname" redis:"nickname"`
-	//Description any      `json:"description" redis:"description"`
-	JoinTime int64 `json:"-" redis:"join_time"`
+	Id       DeviceId `json:"id"`
+	Nickname string   `json:"nickname"`
+	JoinTime int64    `json:"-"`
 }
 
 type Room struct {
@@ -50,124 +43,16 @@ func newRoom(meeting *model.Meeting) *Room {
 }
 
 func (r *Room) Join(device *Device, conn *ws.Conn) {
-	r.Members.Set(device.Id, &Member{
+	member := &Member{
 		Device: device,
 		Room:   r,
 		Conn:   conn,
-	})
-
-	r.setupEmitter(conn)
-}
-
-func (r *Room) setupEmitter(conn *ws.Conn) {
-	conn.On(consts.Message, func(data []byte) {
-		message := &Message[jsoniter.RawMessage]{}
-		err := jsoniter.Unmarshal(data, message)
-		if err != nil {
-			conn.Emit(consts.Err, error2.New(consts.MarshalError, err))
-			return
-		}
-
-		zap.L().Debug("receive message", zap.String("deviceId", conn.DeviceId), zap.Any("event", message.Event), zap.Any("data", message.Data))
-
-		switch message.Event {
-		case consts.Description, consts.Candidate:
-			r.forwarding(conn.DeviceId, message)
-		case consts.Device:
-			r.updateInfo(conn.DeviceId, message)
-		case consts.KeepAlive:
-			conn.KeepAlive()
-		case consts.Leave:
-			conn.Emit(consts.Close)
-		default:
-			conn.Emit(consts.Err, error2.New(consts.ParamError, fmt.Errorf("unknown event type: %v", message.Event)))
-		}
-	})
-
-	conn.On(consts.Join, func() {
-		zap.L().Debug("receive join", zap.String("deviceId", conn.DeviceId))
-		r.join(conn.DeviceId)
-	})
-
-	conn.On(consts.Close, func() {
-		zap.L().Debug("receive close", zap.String("deviceId", conn.DeviceId))
-		defer conn.Close()
-		r.Members.Delete(conn.DeviceId)
-		broadcast(r, &Message[DeviceId]{
-			Event: consts.Leave,
-			Data:  conn.DeviceId,
-		}, conn.DeviceId)
-	})
-
-	conn.On(consts.Err, func(err error) {
-		zap.L().Debug("receive error", zap.Error(err), zap.String("deviceId", conn.DeviceId))
-		conn.Send(&Message[error]{
-			Event: consts.Error,
-			Data:  err,
-		})
-	})
-
-	zap.L().Debug("setup emitter finished", zap.String("deviceId", conn.DeviceId))
-}
-
-func (r *Room) updateInfo(deviceId DeviceId, message *Message[jsoniter.RawMessage]) {
-	device := &Device{Id: deviceId}
-	err := jsoniter.Unmarshal(message.Data, device)
-	if err != nil {
-		zap.L().Error("unmarshal error", zap.Error(err))
-		sendTo[error](r, deviceId, &Message[error]{consts.Error, error2.New(consts.MarshalError, err)})
-		return
 	}
+	r.Members.Set(device.Id, member)
 
-	member, ok := r.Members.Get(deviceId)
-	if !ok {
-		zap.L().Error("member not found in room", zap.String("deviceId", deviceId), zap.Any("meeting", r.Meeting))
-		return
-	}
-	zap.L().Debug("update info", zap.Any("new device", device), zap.Any("old device", member.Device))
-	member.Device.Nickname = device.Nickname
+	member.setupEmitter()
 
-	zap.L().Debug("room dsevices", zap.String("meetingId", r.Meeting.Id), zap.Any("devices", r.getDevices()))
-
-	broadcast(r, &Message[*Device]{
-		Event: consts.Device,
-		Data:  member.Device,
-	}, deviceId)
-}
-
-// forwarding descp: forward message to specific device by Data.Id
-func (r *Room) forwarding(deviceId DeviceId, message *Message[jsoniter.RawMessage]) {
-	data := make([]Data, 0, r.Members.Len()-1)
-	err := jsoniter.Unmarshal(message.Data, &data)
-	if err != nil {
-		zap.L().Error("unmarshal error", zap.Error(err))
-		sendTo[error](r, deviceId, &Message[error]{consts.Error, error2.New(consts.MarshalError, err)})
-		return
-	}
-
-	zap.L().Debug("forwarding", zap.String("deviceId", deviceId), zap.Any("event", message.Event), zap.Any("forwarding data", data))
-
-	deliver(r, &Message[[]Data]{
-		Event: message.Event,
-		Data:  data,
-	}, deviceId)
-}
-
-// join descp: send all devices in room to new device, and send new device to all devices in room
-func (r *Room) join(deviceId DeviceId) {
-	member, ok := r.Members.Get(deviceId)
-	if !ok {
-		zap.L().Error("member not found in room", zap.String("deviceId", deviceId), zap.Any("meeting", r.Meeting))
-		return
-	}
-
-	sendTo(r, deviceId, &Message[[]*Device]{consts.Member, r.getDevices(deviceId)})
-	broadcast(r, &Message[[]*Device]{
-		Event: consts.Member,
-		Data: []*Device{
-			member.Device,
-		},
-	}, deviceId)
+	conn.Emit(consts.Join)
 }
 
 func (r *Room) getDevices(exceptions ...DeviceId) []*Device {
@@ -179,6 +64,105 @@ func (r *Room) getDevices(exceptions ...DeviceId) []*Device {
 	r.Members.Range(fn, defaultExcept(exceptions...))
 
 	return devices
+}
+
+type Member struct {
+	Device *Device
+	Room   *Room
+	Conn   *ws.Conn
+}
+
+func (m *Member) setupEmitter() {
+	m.Conn.On(consts.Message, func(data []byte) {
+		message := &Message[jsoniter.RawMessage]{}
+		err := jsoniter.Unmarshal(data, message)
+		if err != nil {
+			m.Conn.Emit(consts.Err, error2.New(consts.MarshalError, err))
+			return
+		}
+
+		zap.L().Debug("receive message", zap.String("deviceId", m.Device.Id), zap.Any("event", message.Event), zap.Any("data", message.Data))
+
+		switch message.Event {
+		case consts.Description, consts.Candidate:
+			m.forwarding(m.Device.Id, message)
+		case consts.Device:
+			m.updateInfo(m.Device.Id, message)
+		case consts.KeepAlive:
+			m.Conn.KeepAlive()
+		case consts.Leave:
+			m.Conn.Emit(consts.Close)
+		default:
+			m.Conn.Emit(consts.Err, error2.New(consts.ParamError, fmt.Errorf("unknown event type: %v", message.Event)))
+		}
+	})
+
+	m.Conn.On(consts.Join, func() {
+		zap.L().Debug("receive join", zap.String("deviceId", m.Device.Id))
+		m.Conn.Send(&Message[[]*Device]{consts.Member, m.Room.getDevices(m.Device.Id)})
+
+		broadcast(m.Room, &Message[[]*Device]{
+			Event: consts.Member,
+			Data: []*Device{
+				m.Device,
+			},
+		}, m.Device.Id)
+	})
+
+	m.Conn.On(consts.Close, func() {
+		zap.L().Debug("receive close", zap.String("deviceId", m.Device.Id))
+		defer m.Conn.Close()
+		m.Room.Members.Delete(m.Device.Id)
+		broadcast(m.Room, &Message[DeviceId]{
+			Event: consts.Leave,
+			Data:  m.Device.Id,
+		}, m.Device.Id)
+	})
+
+	m.Conn.On(consts.Err, func(err error) {
+		zap.L().Debug("receive error", zap.Error(err), zap.String("deviceId", m.Device.Id))
+		m.Conn.Send(&Message[error]{
+			Event: consts.Error,
+			Data:  err,
+		})
+	})
+
+	zap.L().Debug("setup emitter finished", zap.String("deviceId", m.Device.Id))
+}
+
+func (m *Member) updateInfo(deviceId DeviceId, message *Message[jsoniter.RawMessage]) {
+	device := &Device{Id: deviceId}
+	err := jsoniter.Unmarshal(message.Data, device)
+	if err != nil {
+		zap.L().Error("unmarshal error", zap.Error(err))
+		m.Conn.Send(&Message[error]{consts.Error, error2.New(consts.MarshalError, err)})
+		return
+	}
+
+	zap.L().Debug("update info", zap.Any("newDevice", device), zap.Any("oldDevice", m.Device))
+	m.Device.Nickname = device.Nickname
+	broadcast(m.Room, &Message[*Device]{
+		Event: consts.Device,
+		Data:  m.Device,
+	}, deviceId)
+}
+
+// forwarding descp: forward message to specific device by Data.Id
+func (m *Member) forwarding(deviceId DeviceId, message *Message[jsoniter.RawMessage]) {
+	data := make([]Data, 0, m.Room.Members.Len()-1)
+	err := jsoniter.Unmarshal(message.Data, &data)
+	if err != nil {
+		zap.L().Error("unmarshal error", zap.Error(err))
+		m.Conn.Send(&Message[error]{consts.Error, error2.New(consts.MarshalError, err)})
+		return
+	}
+
+	zap.L().Debug("forwarding", zap.String("deviceId", deviceId), zap.Any("event", message.Event), zap.Any("forwarding data", data))
+
+	deliver(m.Room, &Message[[]Data]{
+		Event: message.Event,
+		Data:  data,
+	}, deviceId)
 }
 
 // broadcast descp: broadcast message to all devices in room, except exceptions
@@ -211,14 +195,6 @@ func deliver(r *Room, message *Message[[]Data], fromId DeviceId) {
 	}
 
 	r.Members.Range(fn)
-}
-
-func sendTo[T any](r *Room, to DeviceId, message *Message[T]) {
-	member, ok := r.Members.Get(to)
-	if !ok {
-		return
-	}
-	member.Conn.Send(message)
 }
 
 func defaultExcept(exceptions ...DeviceId) func(key DeviceId, value *Member) bool {

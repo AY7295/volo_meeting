@@ -63,8 +63,6 @@ func (h *hub) JoinRoom(meetingId MeetingId, device *Device, conn *ws.Conn) {
 	}
 
 	room.Join(device, conn)
-
-	conn.Emit(consts.Join)
 }
 
 func (h *hub) RemoveRoom(meetingId MeetingId) error {

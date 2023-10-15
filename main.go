@@ -2,8 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/spf13/viper"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,9 +10,11 @@ import (
 	"volo_meeting/api"
 	"volo_meeting/config"
 	"volo_meeting/internal/model"
-	"volo_meeting/lib/db/mysql"
-	"volo_meeting/lib/db/redis"
+	"volo_meeting/lib/db"
 	"volo_meeting/lib/log"
+
+	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -39,10 +39,8 @@ func Init() {
 	config.Init()
 	log.Init()
 
-	mysql.Init()
+	db.Init()
 	model.Init()
-
-	redis.Init()
 }
 
 func closeServer(srv *http.Server) {
