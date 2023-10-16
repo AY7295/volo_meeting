@@ -1,7 +1,11 @@
 package consts
 
+type ErrorId = int32
+
 const (
-	ErrorId = -1
+	WrongMessageModel ErrorId = -1
+	WrongMeeting      ErrorId = -2
+	InvalidId         ErrorId = -3
 )
 
 type Event string

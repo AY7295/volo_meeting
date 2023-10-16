@@ -90,11 +90,16 @@ func (m *Member) setupEmitter() {
 		message := &Message[jsoniter.RawMessage]{}
 		err := jsoniter.Unmarshal(data, message)
 		if err != nil {
-			m.Conn.Emit(consts.Err, error2.New(consts.MarshalError, err), consts.ErrorId)
+			m.Conn.Emit(consts.Err, error2.New(consts.MarshalError, err), consts.WrongMessageModel)
 			return
 		}
 
-		zap.L().Debug("receive message", zap.String("deviceId", m.Device.Id), zap.Any("event", message.Event), zap.Any("data", message.Data))
+		if message.Id <= 0 {
+			m.Conn.Emit(consts.Err, error2.New(consts.ParamError, fmt.Errorf("message id must be greater than 0")), consts.InvalidId)
+			return
+		}
+
+		zap.L().Debug("receive message", zap.String("deviceId", m.Device.Id), zap.Any("message", message))
 
 		switch message.Event {
 		case consts.Description, consts.Candidate:
@@ -170,7 +175,9 @@ func (m *Member) forwarding(deviceId DeviceId, message *Message[jsoniter.RawMess
 	deliver(m.Room, message.Event, data, deviceId)
 }
 
+// sendTo descp sendTo force the conn send Message type
 func sendTo[T any](member *Member, message *Message[T]) {
+	zap.L().Debug("send message", zap.String("deviceId", member.Device.Id), zap.Any("event", message.Event), zap.Any("data", message.Data))
 	member.Conn.Send(message)
 }
 

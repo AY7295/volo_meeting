@@ -58,7 +58,7 @@ func (h *hub) JoinRoom(meetingId MeetingId, device *Device, conn *ws.Conn) {
 	room, err := h.GetRoom(meetingId)
 	if err != nil {
 		zap.L().Error("get room error", zap.Error(err))
-		conn.Send(&Message[error]{consts.ErrorId, consts.Error, err})
+		conn.Send(&Message[error]{consts.WrongMeeting, consts.Error, err})
 		return
 	}
 

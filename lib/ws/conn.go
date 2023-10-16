@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"time"
 	"volo_meeting/consts"
 	error2 "volo_meeting/lib/error"
@@ -26,8 +27,8 @@ func NewConn(socket *websocket.Conn) *Conn {
 		closed:  make(chan struct{}),
 	}
 
-	conn.RecoverWith(func(i1, i2 interface{}, err error) {
-		zap.L().Error("emitter panic", zap.Error(err), zap.Any("code", i1), zap.Any("error-msg", i2))
+	conn.RecoverWith(func(event, listener interface{}, err error) {
+		zap.L().Error("emitter panic", zap.Error(err), zap.Any("event", event), zap.String("listener", fmt.Sprintf("%v", listener)))
 	})
 
 	return conn
