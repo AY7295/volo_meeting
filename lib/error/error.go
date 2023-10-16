@@ -11,12 +11,12 @@ import (
 
 type errorType struct {
 	Code consts.ErrorCode `json:"code"`
-	Err  error            `json:"error,omitempty"`
+	Err  string           `json:"error,omitempty"`
 	Type consts.ErrorType `json:"type"`
 }
 
 func (e *errorType) Error() string {
-	return fmt.Sprintf("[ code: %d, type: %s, error: %v ]", e.Code, e.Type, e.Err.Error())
+	return fmt.Sprintf("[ code: %d, type: %s, error: %v ]", e.Code, e.Type, e.Err)
 }
 
 func New(errCode consts.ErrorCode, err error) error {
@@ -37,7 +37,7 @@ func New(errCode consts.ErrorCode, err error) error {
 		return e
 	}
 
-	e.Err = err
+	e.Err = err.Error()
 	e.Code = errCode
 	e.Type = typeInfo
 	return e
@@ -55,7 +55,7 @@ func Format(err error) (int, map[string]any) {
 	}
 
 	if viper.GetBool("DEBUG") {
-		result["error"] = e.Err.Error()
+		result["error"] = e.Err
 	}
 
 	httpStatus := http.StatusBadRequest
@@ -69,7 +69,7 @@ func Format(err error) (int, map[string]any) {
 func unknown(err error) *errorType {
 	return &errorType{
 		Code: consts.UnknownError,
-		Err:  err,
+		Err:  err.Error(),
 		Type: consts.Code2Type[consts.UnknownError],
 	}
 }
