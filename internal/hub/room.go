@@ -45,11 +45,8 @@ func newRoom(meeting *model.Meeting) *Room {
 }
 
 func (r *Room) Join(device *Device, conn *ws.Conn) {
-	member := &Member{
-		Device: device,
-		Room:   r,
-		Conn:   conn,
-	}
+	member := newMember(device, conn, r)
+
 	r.Members.Set(device.Id, member)
 
 	member.setupEmitter()
@@ -73,6 +70,15 @@ type Member struct {
 	Device     *Device
 	Room       *Room
 	Conn       *ws.Conn
+}
+
+func newMember(device *Device, conn *ws.Conn, room *Room) *Member {
+	return &Member{
+		autoIncrId: &atomic.Int32{},
+		Device:     device,
+		Room:       room,
+		Conn:       conn,
+	}
 }
 
 func (m *Member) NextId() int32 {
