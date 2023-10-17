@@ -45,7 +45,13 @@ func newRoom(meeting *model.Meeting) *Room {
 }
 
 func (r *Room) Join(device *Device, conn *ws.Conn) {
-	member := newMember(device, conn, r)
+	member, ok := r.Members.Get(device.Id)
+	if ok {
+		member.Conn.Close()
+		r.Members.Delete(device.Id)
+	}
+
+	member = newMember(device, conn, r)
 
 	r.Members.Set(device.Id, member)
 
