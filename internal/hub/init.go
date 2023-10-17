@@ -3,13 +3,12 @@ package hub
 import (
 	"errors"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 	"volo_meeting/consts"
 	"volo_meeting/internal/model"
 	error2 "volo_meeting/lib/error"
 	"volo_meeting/lib/tsmap"
 	"volo_meeting/lib/ws"
-
-	"gorm.io/gorm"
 )
 
 var (

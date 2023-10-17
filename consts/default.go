@@ -12,7 +12,7 @@ const (
 	DefaultMeetingIdSize  = 21
 	FriendlyIdReader      = "0123456789"
 	DefaultFriendlyIdSize = 8
-	KeepaliveInterval     = 10 * time.Second
+	KeepaliveInterval     = 20 * time.Second
 )
 
 // descp immutable constants

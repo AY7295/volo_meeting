@@ -112,8 +112,6 @@ func (m *Member) setupEmitter() {
 			m.forwarding(m.Device.Id, message)
 		case consts.Device:
 			m.updateInfo(m.Device.Id, message)
-		case consts.KeepAlive:
-			m.Conn.KeepAlive()
 		case consts.Leave:
 			m.Conn.Emit(consts.Close)
 		default:

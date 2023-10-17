@@ -35,30 +35,40 @@ func NewConn(socket *websocket.Conn) *Conn {
 }
 
 func (conn *Conn) Listen() {
-	// descp keepalive
-	//conn.timer = time.AfterFunc(consts.KeepaliveInterval, func() {
-	//	conn.Emit(consts.Close)
-	//})
+	// descp keepalive : consts.KeepaliveInterval don't reset timer will close conn
+	conn.timer = time.AfterFunc(consts.KeepaliveInterval, func() {
+		conn.Emit(consts.Close)
+	})
 
 	for {
 		select {
 		case <-conn.closed:
 			return
+		case <-time.NewTicker(consts.KeepaliveInterval / 2).C: // keepAlive every 10 seconds
+			conn.ping()
 		default:
-			_, message, err := conn.socket.ReadMessage()
-			if err == nil {
-				conn.Emit(consts.Message, message)
-				continue
+			msgType, message, err := conn.socket.ReadMessage()
+			if err != nil {
+				if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+					zap.L().Error("read message error", zap.Error(err))
+				}
+
+				conn.Emit(consts.Close)
+				return
 			}
 
-			if !websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-				zap.L().Error("read message error", zap.Error(err))
-			}
-
-			conn.Emit(consts.Close)
-			return
+			conn.handleMessage(msgType, message)
 		}
 	}
+}
+
+func (conn *Conn) handleMessage(messageType int, data []byte) {
+	if messageType == websocket.PongMessage {
+		conn.keepAlive()
+		return
+	}
+
+	conn.Emit(consts.Message, data)
 }
 
 func (conn *Conn) Send(data any) {
@@ -80,8 +90,16 @@ func (conn *Conn) Send(data any) {
 	}
 }
 
-func (conn *Conn) KeepAlive() {
+func (conn *Conn) keepAlive() {
 	conn.timer.Reset(consts.KeepaliveInterval)
+}
+
+func (conn *Conn) ping() {
+	err := conn.socket.WriteMessage(websocket.PingMessage, []byte("k"))
+	if err != nil {
+		zap.L().Error("websocket write message error", zap.Error(err))
+		conn.Emit(consts.Close)
+	}
 }
 
 func (conn *Conn) isClosed() error {
