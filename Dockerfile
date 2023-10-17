@@ -1,5 +1,4 @@
-FROM golang:alpine as builder
-
+FROM --platform=${TARGETPLATFORM} golang:alpine as builder
 ENV GO111MODULE=on \
     GOPROXY=https://goproxy.cn,direct
 
@@ -9,8 +8,9 @@ COPY . .
 
 RUN go build -o /app/runner main.go
 
-FROM alpine:latest
+FROM --platform=${TARGETPLATFORM} alpine:latest
 
+RUN echo "http://mirrors.aliyun.com/alpine/v3.18/main/" > /etc/apk/repositories
 RUN apk update && \
     apk upgrade --no-cache && \
     apk add --no-cache tzdata && \
